@@ -41,11 +41,11 @@ def show_endure_ejaculation_panel():
         # 当前忍耐几率
         now_rate = 100 - over_count * down_rate
         now_rate = max(0, now_rate)
-        if now_rate >= 75:
+        if now_rate >= 20:
             endure_text = _("高")
-        elif now_rate >= 50:
+        elif now_rate >= 10:
             endure_text = _("中")
-        elif now_rate >= 25:
+        elif now_rate >= 5:
             endure_text = _("低")
         else:
             endure_text = _("无")
@@ -128,15 +128,15 @@ def common_ejaculation():
     else:
         # 基础射精值，小中多射精区分
         if character_data.second_behavior["p_orgasm_strong"] == 1:
-            semen_count = int(50 * random_weight) * (character_data.h_state.endure_not_shot_count + 1)
+            semen_count = int(500 * random_weight) * (character_data.h_state.endure_not_shot_count + 1)
             semen_count = min(semen_count, character_data.semen_point + character_data.tem_extra_semen_point)
             semen_text = _("超大量射精，射出了") + str(semen_count) + _("ml精液")
         elif character_data.second_behavior["p_orgasm_normal"] == 1:
-            semen_count = int(20 * random_weight) * (character_data.h_state.endure_not_shot_count + 1)
+            semen_count = int(200 * random_weight) * (character_data.h_state.endure_not_shot_count + 1)
             semen_count = min(semen_count, character_data.semen_point + character_data.tem_extra_semen_point)
             semen_text = _("大量射精，射出了") + str(semen_count) + _("ml精液")
         else:
-            semen_count = int(10 * random_weight)
+            semen_count = int(100 * random_weight)
             semen_count = min(semen_count, character_data.semen_point + character_data.tem_extra_semen_point)
             semen_text = _("射精，射出了") + str(semen_count) + _("ml精液")
 
