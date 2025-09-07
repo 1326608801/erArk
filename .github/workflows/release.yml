@@ -1,0 +1,201 @@
+name: Build Windows Game
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 确保获取完整的提交历史
+
+      - name: Install Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+
+      - name: Install requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Run PyInstaller
+        run: |
+          pyinstaller -F game.py --hidden-import=engineio.async_drivers.threading --icon=image/logo.png
+
+      - name: Build Game Config
+        run: |
+          $env:PYTHONIOENCODING="utf-8"
+          python buildconfig.py
+
+      - name: Build Game Cache
+        run: |
+          $env:PYTHONIOENCODING="utf-8"
+          python init_data.py
+
+      - name: Copy Game Files
+        run: |
+          Copy-Item data dist/ -Recurse
+          Copy-Item config.ini dist/
+          Copy-Item LICENSE dist/
+          Copy-Item README.md dist/
+          Copy-Item image dist/ -Recurse
+          Copy-Item update.log dist/
+          Copy-Item "todo list.txt" dist/
+          Copy-Item package.json dist/
+          Copy-Item example dist/ -Recurse
+          Copy-Item static dist/ -Recurse
+          Copy-Item templates dist/ -Recurse
+          Rename-Item dist erArk
+
+      - name: Pack Game Files
+        run: |
+          Compress-Archive -Path erArk\* -DestinationPath erArk.zip
+
+      - name: Run PyInstaller_ArkEditor
+        run: |
+          pyinstaller -F tools/ArkEditor/main.py
+
+      - name: Copy ArkEditor Files
+        run: |
+          New-Item -ItemType Directory -Force dist_ArkEditor
+          New-Item -ItemType Directory -Force dist_ArkEditor/csv
+          New-Item -ItemType Directory -Force dist_ArkEditor/例子
+          Copy-Item dist/main.exe dist_ArkEditor/ -Force
+          Copy-Item tools/ArkEditor/csv/Premise.csv dist_ArkEditor/csv/
+          Copy-Item tools/ArkEditor/csv/PremiseGroup.csv dist_ArkEditor/csv/
+          Copy-Item tools/ArkEditor/csv/Behavior_Data.csv dist_ArkEditor/csv/
+          Copy-Item tools/ArkEditor/csv/Effect.csv dist_ArkEditor/csv/
+          Copy-Item tools/ArkEditor/csv/Organ.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Ability.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Birthplace.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/BodyPart.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Bondage.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/CharacterState.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/ClothingType.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Experience.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Juel.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Talent.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Nation.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Race.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Roleplay.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Profession.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Item.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Gift_Items.csv dist_ArkEditor/csv/
+          Copy-Item data/csv/Resource.csv dist_ArkEditor/csv/
+          Copy-Item example/0999_口上编辑器教程文件.csv dist_ArkEditor/
+          Copy-Item example/0999_模板人物属性文件.csv dist_ArkEditor/
+          Copy-Item example/0999_事件编辑器教程文件.json dist_ArkEditor/
+          Copy-Item example/0999_口上模板.csv dist_ArkEditor/
+          Copy-Item example/事件测试用例_移动.json dist_ArkEditor/例子/
+          Copy-Item example/事件测试用例_自定义指令.json dist_ArkEditor/例子/
+          Copy-Item example/事件测试用例_替换指令文本.json dist_ArkEditor/例子/
+          Copy-Item example/事件测试用例_嵌套父子事件.json dist_ArkEditor/例子/
+          Copy-Item example/纸娃娃文本测试用例.csv dist_ArkEditor/例子/
+          Copy-Item example/富文本测试用例.csv dist_ArkEditor/例子/
+          Copy-Item example/0999_外勤委托模板.csv dist_ArkEditor/例子/
+
+      - name: Get the last merged commit SHA from the master branch
+        run: |
+          $LAST_MERGED_SHA = git rev-parse origin/master
+          echo "Last merged commit SHA: $LAST_MERGED_SHA"
+          echo "LAST_MERGED_SHA=$LAST_MERGED_SHA" >> $env:GITHUB_ENV
+          $SECOND_LAST_MERGED_SHA = git rev-list --merges -n 2 origin/master | Select-Object -Last 1
+          echo "Second last merged commit SHA: $SECOND_LAST_MERGED_SHA"
+          echo "SECOND_LAST_MERGED_SHA=$SECOND_LAST_MERGED_SHA" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Get current PR commit SHA
+        id: commits
+        run: |
+          $CURRENT_SHA = "${{ github.sha }}"
+          echo "Current PR commit SHA: $CURRENT_SHA"
+          echo "CURRENT_SHA=$CURRENT_SHA" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Output commits for verification
+        id: get_commit_logs
+        run: |
+          echo "Commits between $env:LAST_MERGED_SHA and $env:CURRENT_SHA"
+          $COMMIT_LOGS = $(git log --oneline $env:LAST_MERGED_SHA..$env:CURRENT_SHA)
+          echo "COMMIT_LOGS : $COMMIT_LOGS"
+          echo "COMMIT_LOGS=$COMMIT_LOGS" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Pack ArkEditor Files
+        run: |
+          Compress-Archive -Path dist_ArkEditor\* -DestinationPath erArkEditor.zip
+      - uses: actions/upload-artifact@master
+        with:
+          name: Windows
+          path: erArk.zip
+
+      - name: Read Version
+        id: version
+        uses: ashley-taylor/read-json-property-action@v1.0
+        with:
+          path: package.json
+          property: version
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{steps.version.outputs.value}}
+          release_name: ${{steps.version.outputs.value}}
+          body: |
+            游戏本体 - erArk_版本号.zip
+            游戏所需的字体包（用于绘制AA地图） - font.zip
+
+            —————— 一般玩家下载上面两个 ——————
+            —————— 以下为口上作者/魔改开发用 ——————
+            
+            口上事件编辑器（无需写代码即可写口上和事件） - erArkEditor.zip
+            源代码 - Source code
+          
+            ${{ env.COMMIT_LOGS }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/erArk.zip
+          asset_name: erArk_${{steps.version.outputs.value}}.zip
+          asset_content_type: application/zip
+
+      - name: Upload Font Asset
+        id: upload-font-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/游戏字体包.zip
+          asset_name: font.zip
+          asset_content_type: application/zip
+
+      - name: Upload ArkEditor Asset
+        id: upload-ArkEditor-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/erArkEditor.zip
+          asset_name: erArkEditor.zip
+          asset_content_type: application/zip
+  
